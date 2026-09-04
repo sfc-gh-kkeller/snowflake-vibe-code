@@ -1,0 +1,23 @@
+# IDE / tool internals
+.snowflake/
+.claude/
+
+# Skill files (runtime artifacts with account-specific content)
+SKILL.md
+snowflake-vibe-code/
+
+# Secrets and credentials
+.env
+.env.*
+*.pem
+*.key
+credentials.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.tar.gz
+__pycache__/
+node_modules/

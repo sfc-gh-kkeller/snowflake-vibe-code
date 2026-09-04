@@ -1,0 +1,42 @@
+-- =============================================================================
+-- SPCS DevContainer: Infrastructure Setup
+-- Creates database, schema, image repo, stage, compute pool, and network access
+-- =============================================================================
+
+USE ROLE ACCOUNTADMIN;
+
+-- Database and schema
+CREATE DATABASE IF NOT EXISTS DEVCONTAINER_DB;
+CREATE SCHEMA IF NOT EXISTS DEVCONTAINER_DB.SPCS;
+
+-- Image repository
+CREATE IMAGE REPOSITORY IF NOT EXISTS DEVCONTAINER_DB.SPCS.IMAGES;
+
+-- Persistent storage for home directory
+CREATE STAGE IF NOT EXISTS DEVCONTAINER_DB.SPCS.HOME_STAGE
+  DIRECTORY = (ENABLE = TRUE)
+  ENCRYPTION = (TYPE = 'SNOWFLAKE_SSE');
+
+-- Compute pool
+CREATE COMPUTE POOL IF NOT EXISTS DEVCONTAINER_POOL
+  MIN_NODES = 1
+  MAX_NODES = 1
+  INSTANCE_FAMILY = CPU_X64_S
+  AUTO_SUSPEND_SECS = 3600
+  AUTO_RESUME = TRUE;
+
+-- Warehouse for service function execution
+CREATE WAREHOUSE IF NOT EXISTS DEVCONTAINER_WH
+  WAREHOUSE_SIZE = 'XSMALL'
+  AUTO_SUSPEND = 60
+  AUTO_RESUME = TRUE;
+
+-- Network access for package managers and git
+CREATE NETWORK RULE IF NOT EXISTS DEVCONTAINER_DB.SPCS.EXTERNAL_ACCESS_RULE
+  MODE = EGRESS
+  TYPE = HOST_PORT
+  VALUE_LIST = ('0.0.0.0:80', '0.0.0.0:443');
+
+CREATE EXTERNAL ACCESS INTEGRATION IF NOT EXISTS DEVCONTAINER_EXTERNAL_ACCESS
+  ALLOWED_NETWORK_RULES = (DEVCONTAINER_DB.SPCS.EXTERNAL_ACCESS_RULE)
+  ENABLED = TRUE;
