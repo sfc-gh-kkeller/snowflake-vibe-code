@@ -88,9 +88,9 @@ RUN pip install --break-system-packages --user snowflake-cli || true
 # Install CoCo CLI (cortex)
 RUN curl -fsSL https://ai.snowflake.com/static/cc-scripts/install.sh | sh || true
 
-# Install asdf (v0.20+ is a Go binary)
+# Install asdf (latest release, Go binary)
 RUN mkdir -p ~/.local/bin && \
-    curl -fsSL https://github.com/asdf-vm/asdf/releases/download/v0.20.0/asdf-v0.20.0-linux-amd64.tar.gz | \
+    curl -fsSL https://github.com/asdf-vm/asdf/releases/latest/download/asdf-linux-amd64.tar.gz | \
     tar -xz -C ~/.local/bin
 
 
