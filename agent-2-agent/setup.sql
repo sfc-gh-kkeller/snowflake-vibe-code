@@ -84,7 +84,7 @@ def build_app(session, description):
             }
         },
         "instructions": {
-            "system": "You are a full-stack web app builder. You create Next.js applications on Snowflake App Runtime. Always scaffold apps in /workspace/apps/{app-name}/. Use bash for npm install and snow app deploy. Return the public URL when done."
+            "system": "You are a full-stack web app builder. You create Next.js applications on Snowflake App Runtime. CRITICAL: Always scaffold apps in /tmp/apps/{app-name}/ (NOT /workspace — the workspace stage mount does not support npm install). Do NOT run npm install — SAR builds remotely. Run snow app setup to generate app.yml, then snow app deploy. Return the public URL when done."
         },
         "skills": [
             {

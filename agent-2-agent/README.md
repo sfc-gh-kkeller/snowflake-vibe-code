@@ -2,6 +2,10 @@
 
 An alternative to the SPCS container approach. Uses Snowflake's native Cortex Coding Agent as the vibe-coding runtime and Snowflake App Runtime (SAR) for app hosting. Zero infrastructure to manage.
 
+## Status: WORKING
+
+Tested and verified end-to-end on Sep 29, 2026. The Coding Agent sandbox now has snow CLI 3.27.0, and `snow app deploy` works from inside the sandbox.
+
 ## How it works
 
 ```
@@ -21,9 +25,9 @@ AGENT_RUN (Snowflake Cortex)
     v
 Coding Agent sandbox
     |
-    |  Scaffolds Next.js project
-    |  Installs dependencies (npm install)
-    |  Deploys via snow app deploy
+    |  Scaffolds Next.js project in /tmp
+    |  Runs snow app setup + snow app deploy
+    |  SAR builds remotely (no local npm install)
     v
 Snowflake App Runtime (SAR)
     |
@@ -86,31 +90,30 @@ SELECT SNOWFLAKE.CORTEX.AGENT_RUN($${
 }$$, TRUE);
 ```
 
-## Status: PARKED
-
-The agent-to-agent approach works for building apps (file creation, npm install, bash — all verified in the Coding Agent sandbox). The blocker is deploying to Snowflake App Runtime (SAR):
-
-| Component | Snow CLI version | SAR support |
-|-----------|-----------------|-------------|
-| Latest release | **3.26.0** | Yes (`app.yml` v2 GA) |
-| Coding Agent sandbox | **3.24.1** | No (pip locked, can't upgrade) |
-| SPCS deployer service | 3.26.0 | Fails — service identity has no personal database |
-
-SAR builds run inside the calling user's personal database (`USER$<username>`). Service identities don't have personal databases, so neither an SPCS deployer service nor the sandbox (which runs as a service) can complete the build.
-
-**When the sandbox gets snow CLI 3.25+**, this approach works end-to-end: agent builds files → `snow app deploy` from bash → live SAR URL. No SPCS containers needed.
-
-**Alternative (works today)**: Use the V1 SPCS approach — AI agent calls `create_project` → `project_write` → `project_exec` to build and serve apps in SPCS containers. See the root README.
-
 ## Key learnings
 
 1. **Agent object vs inline config**: `code_toolset_all` sandbox tools only activate when using inline config in `AGENT_RUN`, not when referencing an agent object. The BUILD_APP procedure uses inline config for this reason.
 
-2. **Workspace persistence**: Files written to `/workspace/` persist across agent calls because the workspace is backed by a Snowflake stage (`USER$.PUBLIC.DEFAULT$`).
+2. **Workspace stage limitations**: The `/workspace` mount is backed by a Snowflake stage which does NOT support POSIX atomic renames. This means `npm install` fails with EIO errors on `/workspace`. Always scaffold projects in `/tmp` instead. SAR does a remote build, so local `npm install` is not needed.
 
-3. **Permission policy**: Set to `always_allow` for unattended execution. The default `always_ask` pauses at every state-modifying tool call, which doesn't work in a single-response SQL function.
+3. **Pre-configured snow connection**: The sandbox automatically has a `default` snow CLI connection configured with OAuth token auth. No manual `snow connection add` is needed. The connection uses the calling user's identity, role, and warehouse.
 
-4. **SAR deployment blocker**: The sandbox has snow CLI 3.24.1; SAR (`app.yml` v2) requires 3.25+. pip is locked by Bazel rules in the sandbox so you can't upgrade. A separate SPCS deployer service was tested but SAR builds require a human user identity (personal database), which service identities don't have.
+4. **SAR builds in personal database**: `snow app setup` resolves to `USER$<username>` as the build database. Since the sandbox runs as the calling user (not a service identity), personal database access works correctly.
+
+5. **Permission policy**: Set to `always_allow` for unattended execution. The default `always_ask` pauses at every state-modifying tool call, which doesn't work in a single-response SQL function.
+
+6. **Timing**: The full cycle (agent thinking + file creation + snow app setup + snow app deploy with remote build) takes 5-10 minutes. Set `STATEMENT_TIMEOUT_IN_SECONDS` accordingly.
+
+## Sandbox environment
+
+| Component | Value |
+|-----------|-------|
+| Snow CLI | 3.27.0 |
+| Connection | `default` (OAuth, auto-configured) |
+| Auth | `/snowflake/session/token` |
+| Build database | `USER$<username>` (personal) |
+| Workspace | `/workspace` -> `USER$.PUBLIC.DEFAULT$` (stage-backed) |
+| Temp dir | `/tmp` (local filesystem, use for npm/builds) |
 
 ## Comparison: SPCS vs Agent-to-Agent
 
